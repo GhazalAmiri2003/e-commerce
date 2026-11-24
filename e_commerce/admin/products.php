@@ -28,7 +28,7 @@ $result = mysqli_query($conn,
 <div class="admin-container">
 
 
-    <a href="../auth/logout.php" style=" position: fixed; top: 20px; left: 20px;" >Logout</a>
+    <form action="../auth/logout.php" method="POST" style="display:inline"><input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>"><button type="submit">Logout</button></form>
     <a href="add_product.php" class="add-product-btn">Add New Product</a>
 
 <br><br>

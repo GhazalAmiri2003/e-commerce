@@ -1,3 +1,4 @@
+<?php require_once __DIR__ . '/../config/security.php'; ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -21,7 +22,7 @@
 
     <div class="cart">
         <a href="cart.php">🛒 View Cart</a>
-        <a href="../auth/logout.php">Logout</a>
+        <form action="../auth/logout.php" method="POST" style="display:inline"><input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>"><button type="submit">Logout</button></form>
     </div>
 </div>
 
