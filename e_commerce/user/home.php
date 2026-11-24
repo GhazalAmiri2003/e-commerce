@@ -1,12 +1,14 @@
 <?php
 session_start();
-require "../config/db.php";
+require __DIR__ . "/../config/db.php";
+require_once __DIR__ . '/../config/security.php';
 
 
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<meta name="csrf-token" content="<?= h(csrf_token()) ?>">
     <title>Home</title>
     <link rel="stylesheet" href="/e_commerce/assets/css/home.css">
 </head>
@@ -58,10 +60,10 @@ require "../config/db.php";
         while ($cat = mysqli_fetch_assoc($cats)) {
             ?>
             <div class="category-card">
-                <a href="products.php?category=<?php echo $cat['id']; ?>">
+                <a href="products.php?category=<?= h($cat['id']) ?>">
 
-                    <img src="../<?php echo $cat['image']; ?>" alt="">
-                    <h3><?php echo $cat['name']; ?></h3>
+                    <img src="../<?= h($cat['image']) ?>" alt="">
+                    <h3><?= h($cat['name']) ?></h3>
                 </a>
             </div>
         <?php } ?>
@@ -88,18 +90,18 @@ require "../config/db.php";
             <div class="product-card <?php echo ($row['stock'] <= 0) ? 'out-of-stock' : ''; ?>">
 
                 <div class="image-wrapper">
-                    <img src="../<?php echo $row['image']; ?>" width="150">
+                    <img src="../<?= h($row['image']) ?>" width="150">
 
                     <?php if ($row['stock'] <= 0) { ?>
                         <div class="overlay">Out of Stock</div>
                     <?php } ?>
                 </div>
 
-                <h4><?php echo $row['name']; ?></h4>
-                <p>€<?php echo $row['price']; ?></p>
+                <h4><?= h($row['name']) ?></h4>
+                <p>€<?= h($row['price']) ?></p>
 
                 <?php if ($row['stock'] > 0) { ?>
-                    <button onclick="addToCart(<?php echo $row['id']; ?>)">
+                    <button onclick="addToCart(<?= h($row['id']) ?>)">
                         Add to Cart
                     </button>
                 <?php } ?>

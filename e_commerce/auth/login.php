@@ -1,37 +1,25 @@
 <?php
 session_start();
-require "C:/xampp/htdocs/e_commerce/config/db.php";
-
+require __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../config/security.php';
 if (isset($_POST['login'])) {
-
-    $email = $_POST['email'];
-    $pass  = $_POST['password'];
-
-    $result = mysqli_query($conn,
-        "SELECT * FROM users WHERE email='$email' AND password='$pass'"
-    );
-
-    if (mysqli_num_rows($result) == 1) {
-
-        $user = mysqli_fetch_assoc($result);
-
-        $_SESSION['user_id'] = $user['id'];
-        $_SESSION['role']    = $user['role'];
-
-        if ($user['role'] === 'admin') {
-            header("Location: ../admin/products.php");
-        } else {
-            header("Location: ../user/home.php");
+    require_csrf();
+    $email = filter_var($_POST['email'] ?? '', FILTER_VALIDATE_EMAIL);
+    $pass = $_POST['password'] ?? '';
+    if ($email && is_string($pass)) {
+        $stmt = $conn->prepare('SELECT id, role, password FROM users WHERE email = ? LIMIT 1');
+        $stmt->bind_param('s', $email); $stmt->execute();
+        $user = $stmt->get_result()->fetch_assoc();
+        if ($user && password_verify($pass, $user['password'])) {
+            session_regenerate_id(true);
+            $_SESSION['user_id'] = (int)$user['id'];
+            $_SESSION['role'] = $user['role'];
+            unset($_SESSION['csrf_token']);
+            header('Location: ' . ($user['role'] === 'admin' ? '../admin/products.php' : '../user/home.php'));
+            exit;
         }
-        exit;
-
-    } else {
-        $error = "Invalid email or password";
     }
-}
-if (isset($_POST['skip'])) {
-    header("Location: ../user/home.php");
-
+    $error = 'Invalid email or password. Legacy accounts require a password reset.';
 }
 ?>
 <!DOCTYPE html>
@@ -48,6 +36,7 @@ if (isset($_POST['skip'])) {
 
 <div class="auth-container">
     <form method="POST" class="auth-form">
+<input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
         <h2>Login</h2>
 
         <input type="email" name="email" placeholder="Email" required>

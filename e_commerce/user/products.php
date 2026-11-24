@@ -1,15 +1,15 @@
 <?php
 session_start();
-require "../config/db.php";
+require __DIR__ . "/../config/db.php";
+require_once __DIR__ . '/../config/security.php';
 
 
 
-$categoryId = isset($_GET['category']) ? $_GET['category'] : null;
+$categoryId = filter_var($_GET["category"] ?? null, FILTER_VALIDATE_INT, ["options"=>["min_range"=>1]]);
 
 if ($categoryId) {
-    $result = mysqli_query($conn,
-        "SELECT * FROM products WHERE category_id = $categoryId"
-    );
+    $stmt = $conn->prepare('SELECT * FROM products WHERE category_id = ?');
+    $stmt->bind_param('i', $categoryId); $stmt->execute(); $result = $stmt->get_result();
 } else {
     $result = mysqli_query($conn,
         "SELECT * FROM products"
@@ -19,6 +19,7 @@ if ($categoryId) {
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<meta name="csrf-token" content="<?= h(csrf_token()) ?>">
     <meta charset="UTF-8">
     <title>Login</title>
 
@@ -37,7 +38,7 @@ if ($categoryId) {
         <div class="product-row <?php echo ($row['stock'] <= 0) ? 'out-of-stock' : ''; ?>">
 
             <div class="product-image">
-                <img src="../<?php echo $row['image']; ?>" alt="">
+                <img src="../<?= h($row['image']) ?>" alt="">
                 <!-- تموم شدن موجودی -->
 
                 <?php if ($row['stock'] <= 0) { ?>
@@ -46,13 +47,13 @@ if ($categoryId) {
             </div>
 
             <div class="product-info">
-                <h3><?php echo $row['name']; ?></h3>
-                <p><?php echo $row['description']; ?></p>
-                <p><strong>Price:</strong> €<?php echo $row['price']; ?></p>
-                <p><strong>Stock:</strong> <?php echo $row['stock']; ?></p>
+                <h3><?= h($row['name']) ?></h3>
+                <p><?= h($row['description']) ?></p>
+                <p><strong>Price:</strong> €<?= h($row['price']) ?></p>
+                <p><strong>Stock:</strong> <?= h($row['stock']) ?></p>
 
                 <?php if ($row['stock'] > 0) { ?>
-                    <button onclick="addToCart(<?php echo $row['id']; ?>)">
+                    <button onclick="addToCart(<?= h($row['id']) ?>)">
                         Add to Cart
                     </button>
                 <?php } ?>

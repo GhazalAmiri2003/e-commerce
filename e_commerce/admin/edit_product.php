@@ -1,17 +1,25 @@
 <?php
 session_start();
-require "C:/xampp/htdocs/e_commerce/config/db.php";
-
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'admin') {
-    header("Location: ../auth/login.php");
-    exit;
+require __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../config/security.php';
+require_admin();
+$id = filter_var($_GET['id'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
+if (!$id) { http_response_code(400); exit('Invalid product'); }
+if (isset($_POST['update'])) {
+    require_csrf();
+    $name = trim((string)($_POST['name'] ?? ''));
+    $desc = (string)($_POST['description'] ?? '');
+    $price = filter_var($_POST['price'] ?? null, FILTER_VALIDATE_FLOAT);
+    $stock = filter_var($_POST['stock'] ?? null, FILTER_VALIDATE_INT);
+    $category = filter_var($_POST['category_id'] ?? null, FILTER_VALIDATE_INT);
+    if ($name === '' || $price === false || $price < 0 || $stock === false || $stock < 0 || !$category || $category < 1) { http_response_code(400); exit('Invalid product data'); }
+    $stmt = $conn->prepare('UPDATE products SET name=?, description=?, price=?, stock=?, category_id=? WHERE id=?');
+    $stmt->bind_param('ssdiii', $name, $desc, $price, $stock, $category, $id); $stmt->execute();
+    header('Location: products.php'); exit;
 }
-
-$id = $_GET['id'];
-
-// گرفتن اطلاعات محصول
-$product = mysqli_query($conn, "SELECT * FROM products WHERE id = $id");
-$data = mysqli_fetch_assoc($product);
+$stmt = $conn->prepare('SELECT * FROM products WHERE id=?');
+$stmt->bind_param('i', $id); $stmt->execute(); $data = $stmt->get_result()->fetch_assoc();
+if (!$data) { http_response_code(404); exit('Product not found'); }
 ?>
 <!DOCTYPE html>
 <html>
@@ -24,25 +32,26 @@ $data = mysqli_fetch_assoc($product);
 
 <div class="admin-container">
 
-<form method="POST" class="edit-form"">
+<form method="POST" class="edit-form">
+<input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
 
     <label>Name</label><br>
     <input type="text" name="name"
-           value="<?php echo $data['name']; ?>" required>
+           value="<?= h($data['name']) ?>" required>
     <br><br>
 
     <label>Description</label><br>
-    <textarea name="description"><?php echo $data['description']; ?></textarea>
+    <textarea name="description"><?= h($data['description']) ?></textarea>
     <br><br>
 
     <label>Price</label><br>
     <input type="number" name="price"
-           value="<?php echo $data['price']; ?>" required>
+           value="<?= h($data['price']) ?>" required>
     <br><br>
 
     <label>Stock</label><br>
     <input type="number" name="stock"
-           value="<?php echo $data['stock']; ?>" required>
+           value="<?= h($data['stock']) ?>" required>
     <br><br>
 
     <!-- Category dropdown (فقط برای تغییر دسته‌بندی) -->
@@ -52,7 +61,7 @@ $data = mysqli_fetch_assoc($product);
         $cats = mysqli_query($conn, "SELECT * FROM categories");
         while ($c = mysqli_fetch_assoc($cats)) {
             $selected = ($c['id'] == $data['category_id']) ? "selected" : "";
-            echo "<option value='{$c['id']}' $selected>{$c['name']}</option>";
+            echo '<option value="' . (int)$c['id'] . '" ' . $selected . '>' . h($c['name']) . '</option>';
         }
         ?>
     </select>
@@ -63,26 +72,3 @@ $data = mysqli_fetch_assoc($product);
 </form>
 </div>
 </body>
-<?php
-if (isset($_POST['update'])) {
-
-    $name     = $_POST['name'];
-    $desc     = $_POST['description'];
-    $price    = $_POST['price'];
-    $stock    = $_POST['stock'];
-    $category = $_POST['category_id'];
-
-    mysqli_query($conn,
-        "UPDATE products
-         SET name='$name',
-             description='$desc',
-             price='$price',
-             stock='$stock',
-             category_id='$category'
-         WHERE id=$id"
-    );
-
-    header("Location: products.php");
-    exit;
-}
-?>

@@ -1,58 +1,34 @@
 <?php
-/*************************************************
- * CART PAGE
- * - Shows cart items
- * - Handles 30 min expiration
- * - Restores stock on timeout
- * - Demo checkout (no real payment)
- *************************************************/
-
 session_start();
-require "../config/db.php";
-
-/* ---------- LOGIN CHECK ---------- */
-if (!isset($_SESSION['user_id'])) {
-    header("Location: ../auth/login.php");
-    exit;
-}
-
-/* ---------- CART TIMEOUT (30 MINUTES) ---------- */
-$timeout = 30 * 60; // 30 minutes in seconds
-$expired = false;
-
-if (isset($_SESSION['cart_time']) && isset($_SESSION['cart'])) {
-
-    // If inactive for more than 30 minutes
-    if (time() - $_SESSION['cart_time'] > $timeout) {
-
-        // Restore stock for all cart products
-        foreach ($_SESSION['cart'] as $product_id => $qty) {
-            mysqli_query($conn,
-                "UPDATE products
-                 SET stock = stock + $qty
-                 WHERE id = $product_id"
-            );
-        }
-
-        // Clear cart session
-        unset($_SESSION['cart']);
-        unset($_SESSION['cart_time']);
-
-        $expired = true;
-    }
-}
-
-/* ---------- DEMO CHECKOUT ---------- */
+require __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../config/security.php';
+if (empty($_SESSION['user_id'])) { header('Location: ../auth/login.php'); exit; }
+$timeout = 1800;
+$expired = isset($_SESSION['cart_time']) && time() - $_SESSION['cart_time'] >= $timeout;
+if ($expired) unset($_SESSION['cart'], $_SESSION['cart_time']);
 if (isset($_POST['checkout'])) {
-
-    // Cart already reserved stock → do NOT restore
-    unset($_SESSION['cart']);
-    unset($_SESSION['cart_time']);
-
-    echo "<h2>Order placed successfully ✅</h2>";
-    echo "<p>This is a demo checkout.</p>";
-    echo "<a href='home.php'>Back to Home</a>";
-    exit;
+    require_csrf();
+    if (empty($_SESSION['cart'])) { http_response_code(409); exit('Cart is empty or expired.'); }
+    $items = $_SESSION['cart'];
+    ksort($items);
+    $conn->begin_transaction();
+    try {
+        $stmt = $conn->prepare('UPDATE products SET stock = stock - ? WHERE id = ? AND stock >= ?');
+        foreach ($items as $id => $qty) {
+            $id = (int)$id; $qty = (int)$qty;
+            if ($qty < 1) throw new RuntimeException('Invalid quantity');
+            $stmt->bind_param('iii', $qty, $id, $qty);
+            $stmt->execute();
+            if ($stmt->affected_rows !== 1) throw new RuntimeException('Stock unavailable');
+        }
+        $conn->commit();
+        unset($_SESSION['cart'], $_SESSION['cart_time']);
+        echo "<h2>Demo checkout completed</h2><p>No payment was processed.</p><a href='home.php'>Back to Home</a>";
+        exit;
+    } catch (Throwable $e) {
+        $conn->rollback();
+        $checkoutError = 'Checkout failed; check product availability and retry.';
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -68,6 +44,7 @@ if (isset($_POST['checkout'])) {
 
 <?php
 /* ---------- IF CART EXPIRED ---------- */
+if (isset($checkoutError)) echo '<p>' . h($checkoutError) . '</p>';
 if ($expired) {
     echo "<p style='color:red'>Your cart expired due to inactivity ⏰</p>";
     echo "<a href='home.php'>Back to Home</a>";
@@ -91,7 +68,7 @@ if (empty($_SESSION['cart'])) {
 <script>
     /* Remaining seconds until expiration (from PHP) */
     let remaining = <?php
-        echo $timeout - (time() - $_SESSION['cart_time']);
+        echo max(0, $timeout - (time() - $_SESSION['cart_time']));
         ?>;
 
     /* Countdown function */
@@ -132,12 +109,13 @@ foreach ($_SESSION['cart'] as $product_id => $qty) {
     );
     $product = mysqli_fetch_assoc($res);
 
+    if (!$product) continue;
     $subtotal = $product['price'] * $qty;
     $total += $subtotal;
     ?>
 
     <div style="border:1px solid #ccc; padding:10px; margin:10px 0">
-        <strong><?php echo $product['name']; ?></strong><br>
+        <strong><?= h($product['name']) ?></strong><br>
         Quantity: <?php echo $qty; ?><br>
         Price: €<?php echo $product['price']; ?><br>
         Subtotal: €<?php echo $subtotal; ?>
@@ -154,6 +132,7 @@ foreach ($_SESSION['cart'] as $product_id => $qty) {
 
         <!-- USER LOGGED IN -->
         <form method="POST">
+<input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
             <button type="submit" name="checkout">
                 Checkout (Demo)
             </button>

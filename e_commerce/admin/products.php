@@ -1,6 +1,7 @@
 <?php
 session_start();
-require "C:/xampp/htdocs/e_commerce/config/db.php";
+require __DIR__ . "/../config/db.php";
+require_once __DIR__ . '/../config/security.php';
 
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'admin') {
     header("Location: ../auth/login.php");
@@ -45,22 +46,20 @@ $result = mysqli_query($conn,
 
             <?php while ($row = mysqli_fetch_assoc($result)) { ?>
                 <tr>
-                    <td><?php echo $row['name']; ?></td>
-                    <td><?php echo $row['category_name']; ?></td>
-                    <td><?php echo $row['price']; ?></td>
-                    <td><?php echo $row['stock']; ?></td>
+                    <td><?= h($row['name']) ?></td>
+                    <td><?= h($row['category_name']) ?></td>
+                    <td><?= h($row['price']) ?></td>
+                    <td><?= h($row['stock']) ?></td>
 
                     <td>
                         <?php if (!empty($row['image'])) { ?>
-                            <img src="../<?php echo $row['image']; ?>" width="80">
+                            <img src="../<?= h($row['image']) ?>" width="80">
                         <?php } ?>
                     </td>
 
                     <td>
-                        <a href="edit_product.php?id=<?php echo $row['id']; ?>" class="icon edit">✏️</a>
-                        <a href="delete_product.php?id=<?php echo $row['id']; ?>"
-                           class="icon delete"
-                           onclick="return confirm('Delete this product?')">🗑️</a>
+                        <a href="edit_product.php?id=<?= h($row['id']) ?>" class="icon edit">✏️</a>
+                        <form method="POST" action="delete_product.php" style="display:inline" onsubmit="return confirm('Delete this product?')"><input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>"><input type="hidden" name="id" value="<?= (int)$row['id'] ?>"><button class="icon delete" type="submit">🗑️</button></form>
                     </td>
                 </tr>
             <?php } ?>
