@@ -20,5 +20,8 @@ A browser-based e-commerce prototype with customer and administrator interfaces,
 ## Technology
 PHP · MySQL · JavaScript · HTML · CSS
 
-## Status and setup
-A local PHP/MySQL environment and the required database schema are needed. The repository does not include a schema export. Review database credentials, authentication, authorization, input handling and transactional stock updates before deployment. This is a prototype; production readiness and runtime behaviour have not been independently verified.
+## Security and local setup
+
+The revised prototype uses password hashing, prepared statements, CSRF protection on the main write routes, image validation and transactional stock updates at demo checkout. Adding products to a cart does not reserve stock.
+
+Provide the original MySQL schema and a local PHP/MySQL environment. See [Security migration](e_commerce/config/SECURITY-MIGRATION.md) before running the revised code, especially password resets, DB environment variables and reconciling previously reserved stock. This is a prototype, not a production payment or order system. Integration tests have not been executed.
